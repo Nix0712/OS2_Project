@@ -101,6 +101,13 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_init_raid(void);
+extern uint64 sys_read_raid(void);
+extern uint64 sys_write_raid(void);
+extern uint64 sys_disk_fail_raid(void);
+extern uint64 sys_disk_repaired_raid(void);
+extern uint64 sys_info_raid(void);
+extern uint64 sys_destroy_raid(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +133,13 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_init_raid] sys_init_raid,
+[SYS_read_raid] sys_read_raid,
+[SYS_write_raid] sys_write_raid,
+[SYS_disk_fail_raid] sys_disk_fail_raid,
+[SYS_disk_repaired_raid] sys_disk_repaired_raid,
+[SYS_info_raid] sys_info_raid,
+[SYS_destroy_raid] sys_destroy_raid,
 };
 
 void

@@ -20,3 +20,10 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_init_raid 22
+#define SYS_read_raid 23
+#define SYS_write_raid 24
+#define SYS_disk_fail_raid 25
+#define SYS_disk_repaired_raid 26
+#define SYS_info_raid 27
+#define SYS_destroy_raid 28

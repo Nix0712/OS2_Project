@@ -193,6 +193,11 @@ void            virtio_disk_intr(int id);
 void            write_block(int diskn, int blockno, uchar* data);
 void            read_block(int diskn, int blockno, uchar* data);
 
+
+// raid.c
+enum RAID_TYPE {RAID0, RAID1, RAID0_1, RAID4, RAID5};
+int            init_raid(enum RAID_TYPE raid);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
