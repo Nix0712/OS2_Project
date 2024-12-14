@@ -4,7 +4,6 @@
 //
 // qemu ... -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 //
-
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -56,9 +55,9 @@ static struct disk {
   // disk command headers.
   // one-for-one with descriptors, for convenience.
   struct virtio_blk_req ops[NUM];
-  
+
   struct spinlock vdisk_lock;
-  
+
 } disk[VIRTIO_RAID_DISK_END + 1];
 
 static struct buf* transfer_buffer[VIRTIO_RAID_DISK_END + 1];
@@ -77,7 +76,7 @@ virtio_disk_init(int id, char * name)
      *R(id, VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){
     panic_concat(2, "could not find virtio disk: ", name);
   }
-  
+
   // reset device
   *R(id, VIRTIO_MMIO_STATUS) = status;
 

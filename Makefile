@@ -29,7 +29,8 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/virtio_disk.o \
-  $K/sysraid.o
+  $K/sysraid.o \
+  $K/raid.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -52,7 +53,7 @@ TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' 
 
 
 ifndef DISKS
-DISKS := 2 # How many RAID disks
+DISKS := 4 # How many RAID disks
 endif
 
 
@@ -82,7 +83,7 @@ else
 MEM_SIZE = $(MEM_NUMBER)
 endif
 
-CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM_SIZE)
+CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM_SIZE) -DDISK_SIZE=$(DISK_SIZE)
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax

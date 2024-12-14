@@ -1,13 +1,11 @@
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-
+#include "raid.h"
 
 uint64
 sys_init_raid(void){
-
-  printf("INIT THE RAID\n");
-  return 0;
+  int raid_type;
+  argint(0, &raid_type);
+  printf("INIT THE RAID %d \n",raid_type);
+  return raid_system_init(raid_type);
 }
 
 uint64
@@ -36,8 +34,13 @@ sys_disk_repaired_raid(void){
 
 uint64
 sys_info_raid(void){
-  printf("SYS INFO RAID\n");
-  return 0;
+  uint64 p_diskNum;
+  uint64 p_blkSize;
+  uint64 p_blkNum;
+  argaddr(2, &p_diskNum);
+  argaddr(1, &p_blkSize);
+  argaddr(0, &p_blkNum);
+  return raid_system_info(p_blkNum,p_blkSize,p_diskNum);
 }
 
 uint64

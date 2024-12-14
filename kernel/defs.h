@@ -1,3 +1,6 @@
+#ifndef _DEFS_H_
+#define _DEFS_H_
+
 #include "types.h"
 
 struct buf;
@@ -197,6 +200,12 @@ void            read_block(int diskn, int blockno, uchar* data);
 // raid.c
 enum RAID_TYPE {RAID0, RAID1, RAID0_1, RAID4, RAID5};
 int            init_raid(enum RAID_TYPE raid);
+int            read_raid(int blkn, uchar* data);
+int            write_raid(int blkn, uchar* data);
+int            disk_fail_raid(int diskn);
+int            disk_repaired_raid(int diskn);
+int            info_raid(uint *blkn, uint *blks, uint *diskn);
+int            destroy_raid();
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
@@ -204,3 +213,7 @@ int            init_raid(enum RAID_TYPE raid);
 #define VIRTIO0_ID 0
 #define VIRTIO_RAID_DISK_START (1)
 #define VIRTIO_RAID_DISK_END (DISKS)
+
+
+
+#endif

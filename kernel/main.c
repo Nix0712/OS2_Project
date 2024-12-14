@@ -36,6 +36,8 @@ main()
       printf("%s\n", name);
       virtio_disk_init(i, name);
     }
+    //Init raid device
+    
 
     userinit();      // first user process
     __sync_synchronize();
