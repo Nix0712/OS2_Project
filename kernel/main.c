@@ -1,3 +1,4 @@
+#include "raid.h"
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -36,10 +37,10 @@ main()
       printf("%s\n", name);
       virtio_disk_init(i, name);
     }
-    //Init raid device
-    
 
+    init_raid_device();
     userinit();      // first user process
+
     __sync_synchronize();
     started = 1;
   } else {
@@ -51,6 +52,6 @@ main()
     trapinithart();   // install kernel trap vector
     plicinithart();   // ask PLIC for device interrupts
   }
+  scheduler();
 
-  scheduler();        
 }

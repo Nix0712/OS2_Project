@@ -11,7 +11,7 @@ void print_info(){
 
 int main(int argc, char *argv[]){
   if(argc == 2 && strcmp(argv[1], "-i") == 0)
-    init_raid(RAID0);
+    init_raid(RAID1);
 
   if(argc == 2 && strcmp(argv[1], "-q") == 0)
     print_info();

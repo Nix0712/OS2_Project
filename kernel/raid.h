@@ -2,16 +2,20 @@
 #define _RAID_SYSTEM_H_
 
 #include "types.h"
+#include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
-#include "spinlock.h"
+
+#define OFFSET_MASK 0x0000000000000FFF
 
 enum RAID_DISK_ROLE { DATA_DISK, PARITY_DISK, OTHER_TYPE };
-enum DISK_HEALTH { HEALTHY, UNHEALTY, RECOVERY };
+enum DISK_HEALTH { HEALTHY = 1, UNHEALTY, RECOVERY };
 
 struct RAIDSuperblock{
   enum RAID_TYPE raid_level;
   enum DISK_HEALTH disk_status;
+  int parrity_disk;
+  int swap_disk;
   uint max_blknum;
   uint blk_size;
   uint num_of_disks;
@@ -31,6 +35,10 @@ struct RAIDDevice{
 void init_raid_device();
 
 int raid_system_init(enum RAID_TYPE raid_type);
+int raid_read_block(uint64 blkn, uint64 buffAddr);
+int raid_write_block(uint64 blkn, uint64 buffAddr);
+int raid_fail_disk(uint64 disk_num);
+int raid_repair_disk(uint64 disk_num);
 int raid_system_info(uint64 blkn, uint64 blks, uint64 diskn);
 
 #endif

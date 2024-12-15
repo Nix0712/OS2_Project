@@ -231,7 +231,6 @@ void
 virtio_disk_rw(int id, struct buf *b, int write)
 {
   uint64 sector = b->blockno * (BSIZE / 512);
-
   acquire(&disk[id].vdisk_lock);
 
   // the spec's Section 5.2 says that legacy block operations use
@@ -264,7 +263,6 @@ virtio_disk_rw(int id, struct buf *b, int write)
   disk[id].desc[idx[0]].len = sizeof(struct virtio_blk_req);
   disk[id].desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk[id].desc[idx[0]].next = idx[1];
-
   disk[id].desc[idx[1]].addr = (uint64) b->data;
   disk[id].desc[idx[1]].len = BSIZE;
   if(write)
@@ -294,7 +292,9 @@ virtio_disk_rw(int id, struct buf *b, int write)
 
   __sync_synchronize();
 
+
   *R(id, VIRTIO_MMIO_QUEUE_NOTIFY) = 0; // value is queue number
+
 
   // Wait for virtio_disk_intr() to say request has finished.
   sleep(b, &disk[id].vdisk_lock);
@@ -303,6 +303,7 @@ virtio_disk_rw(int id, struct buf *b, int write)
   free_chain(id, idx[0]);
 
   release(&disk[id].vdisk_lock);
+
 }
 
 void write_block(int diskn, int blockno, uchar* data) {
@@ -316,7 +317,7 @@ void write_block(int diskn, int blockno, uchar* data) {
 void read_block(int diskn, int blockno, uchar* data) {
     struct buf *b = transfer_buffer[diskn];
     b->blockno = blockno;
-
+    
     virtio_disk_rw(diskn, b, 0);
     memmove(data, b->data, BSIZE);
 }

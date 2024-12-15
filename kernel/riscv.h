@@ -1,3 +1,6 @@
+#ifndef __RISCV_H__
+#define __RISCV_H__
+
 #ifndef __ASSEMBLER__
 
 // which hart (core) is this?
@@ -25,7 +28,7 @@ r_mstatus()
   return x;
 }
 
-static inline void 
+static inline void
 w_mstatus(uint64 x)
 {
   asm volatile("csrw mstatus, %0" : : "r" (x));
@@ -34,7 +37,7 @@ w_mstatus(uint64 x)
 // machine exception program counter, holds the
 // instruction address to which a return from
 // exception will go.
-static inline void 
+static inline void
 w_mepc(uint64 x)
 {
   asm volatile("csrw mepc, %0" : : "r" (x));
@@ -56,7 +59,7 @@ r_sstatus()
   return x;
 }
 
-static inline void 
+static inline void
 w_sstatus(uint64 x)
 {
   asm volatile("csrw sstatus, %0" : : "r" (x));
@@ -71,7 +74,7 @@ r_sip()
   return x;
 }
 
-static inline void 
+static inline void
 w_sip(uint64 x)
 {
   asm volatile("csrw sip, %0" : : "r" (x));
@@ -89,7 +92,7 @@ r_sie()
   return x;
 }
 
-static inline void 
+static inline void
 w_sie(uint64 x)
 {
   asm volatile("csrw sie, %0" : : "r" (x));
@@ -107,7 +110,7 @@ r_mie()
   return x;
 }
 
-static inline void 
+static inline void
 w_mie(uint64 x)
 {
   asm volatile("csrw mie, %0" : : "r" (x));
@@ -116,7 +119,7 @@ w_mie(uint64 x)
 // supervisor exception program counter, holds the
 // instruction address to which a return from
 // exception will go.
-static inline void 
+static inline void
 w_sepc(uint64 x)
 {
   asm volatile("csrw sepc, %0" : : "r" (x));
@@ -139,7 +142,7 @@ r_medeleg()
   return x;
 }
 
-static inline void 
+static inline void
 w_medeleg(uint64 x)
 {
   asm volatile("csrw medeleg, %0" : : "r" (x));
@@ -154,7 +157,7 @@ r_mideleg()
   return x;
 }
 
-static inline void 
+static inline void
 w_mideleg(uint64 x)
 {
   asm volatile("csrw mideleg, %0" : : "r" (x));
@@ -162,7 +165,7 @@ w_mideleg(uint64 x)
 
 // Supervisor Trap-Vector Base Address
 // low two bits are mode.
-static inline void 
+static inline void
 w_stvec(uint64 x)
 {
   asm volatile("csrw stvec, %0" : : "r" (x));
@@ -177,7 +180,7 @@ r_stvec()
 }
 
 // Machine-mode interrupt vector
-static inline void 
+static inline void
 w_mtvec(uint64 x)
 {
   asm volatile("csrw mtvec, %0" : : "r" (x));
@@ -203,7 +206,7 @@ w_pmpaddr0(uint64 x)
 
 // supervisor address translation and protection;
 // holds the address of the page table.
-static inline void 
+static inline void
 w_satp(uint64 x)
 {
   asm volatile("csrw satp, %0" : : "r" (x));
@@ -217,7 +220,7 @@ r_satp()
   return x;
 }
 
-static inline void 
+static inline void
 w_mscratch(uint64 x)
 {
   asm volatile("csrw mscratch, %0" : : "r" (x));
@@ -242,7 +245,7 @@ r_stval()
 }
 
 // Machine-mode Counter-Enable
-static inline void 
+static inline void
 w_mcounteren(uint64 x)
 {
   asm volatile("csrw mcounteren, %0" : : "r" (x));
@@ -305,7 +308,7 @@ r_tp()
   return x;
 }
 
-static inline void 
+static inline void
 w_tp(uint64 x)
 {
   asm volatile("mv tp, %0" : : "r" (x));
@@ -361,3 +364,6 @@ typedef uint64 *pagetable_t; // 512 PTEs
 // Sv39, to avoid having to sign-extend virtual addresses
 // that have the high bit set.
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
+
+
+#endif
