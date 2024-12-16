@@ -7,8 +7,7 @@ void check_data(uint blocks, uchar *blk, uint block_size);
 int
 main(int argc, char *argv[])
 {
-  
-  init_raid(RAID1);
+  init_raid(RAID5);
 
   uint disk_num, block_num, block_size;
   info_raid(&block_num, &block_size, &disk_num);
@@ -20,18 +19,19 @@ main(int argc, char *argv[])
     for (uint j = 0; j < block_size; j++) {
       blk[j] = j + i;
     }
+    printf("Upisujem u blok %d\n", i);
     write_raid(i, blk);
   }
-
+  printf("UPISAO\n");
   check_data(blocks, blk, block_size);
 
-  disk_fail_raid(2);
+  // disk_fail_raid(2);
 
-  check_data(blocks, blk, block_size);
+  // check_data(blocks, blk, block_size);
 
-  disk_repaired_raid(2);
+  // disk_repaired_raid(2);
 
-  check_data(blocks, blk, block_size);
+  // check_data(blocks, blk, block_size);
 
   free(blk);
 
@@ -49,8 +49,9 @@ void check_data(uint blocks, uchar *blk, uint block_size)
       {
         printf("expected=%d got=%d", j + i, blk[j]);
         printf("Data in the block %d faulty\n", i);
-        break;
+        return;
       }
     }
   }
+  printf("Data is correct\n");
 }

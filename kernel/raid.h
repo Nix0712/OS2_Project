@@ -27,7 +27,7 @@ struct RAIDDisks{
 };
 
 struct RAIDDevice{
-  uint64 is_init; // state: 0 it's not initilazed, state: 1 it is
+  int is_init; // state: 0 it's not initilazed, state: 1 it is
   struct RAIDDisks disks[VIRTIO_RAID_DISK_END-VIRTIO_RAID_DISK_START];
 };
 
