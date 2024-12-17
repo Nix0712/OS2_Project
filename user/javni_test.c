@@ -2,56 +2,54 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-void check_data(uint blocks, uchar *blk, uint block_size);
+void check_data(uint blocks, uchar* blk, uint block_size);
 
-int
-main(int argc, char *argv[])
-{
-  init_raid(RAID5);
+int main(int argc, char* argv[]) {
+    enum RAID_TYPE raidList[] = {RAID0, RAID1, RAID0_1, RAID4, RAID5};
 
-  uint disk_num, block_num, block_size;
-  info_raid(&block_num, &block_size, &disk_num);
+    for (uint k = 0; k < 5; k++) {
+        init_raid(raidList[k]);
 
-  uint blocks = (512 > block_num ? block_num : 512);
+        uint disk_num, block_num, block_size;
+        info_raid(&block_num, &block_size, &disk_num);
 
-  uchar* blk = malloc(block_size);
-  for (uint i = 0; i < blocks; i++) {
-    for (uint j = 0; j < block_size; j++) {
-      blk[j] = j + i;
+        uint blocks = (512 > block_num ? block_num : 512);
+
+        uchar* blk = malloc(block_size);
+        for (uint i = 0; i < blocks; i++) {
+            for (uint j = 0; j < block_size; j++) {
+                blk[j] = j + i;
+            }
+            write_raid(i, blk);
+        }
+        printf("UPISAO\n");
+        check_data(blocks, blk, block_size);
+        free(blk);
     }
-    printf("Upisujem u blok %d\n", i);
-    write_raid(i, blk);
-  }
-  printf("UPISAO\n");
-  check_data(blocks, blk, block_size);
+    
+    // disk_fail_raid(2);
 
-  // disk_fail_raid(2);
+    // check_data(blocks, blk, block_size);
 
-  // check_data(blocks, blk, block_size);
+    // disk_repaired_raid(2);
 
-  // disk_repaired_raid(2);
+    // check_data(blocks, blk, block_size);
 
-  // check_data(blocks, blk, block_size);
 
-  free(blk);
-
-  exit(0);
+    exit(0);
 }
 
-void check_data(uint blocks, uchar *blk, uint block_size)
-{
-  for (uint i = 0; i < blocks; i++)
-  {
-    read_raid(i, blk);
-    for (uint j = 0; j < block_size; j++)
-    {
-      if ((uchar)(j + i) != blk[j])
-      {
-        printf("expected=%d got=%d", j + i, blk[j]);
-        printf("Data in the block %d faulty\n", i);
-        return;
-      }
+void check_data(uint blocks, uchar* blk, uint block_size) {
+    for (uint i = 0; i < blocks; i++) {
+        read_raid(i, blk);
+        for (uint j = 0; j < block_size; j++) {
+            if ((uchar)(j + i) != blk[j]) {
+                printf("expected=%d got=%d", j + i, blk[j]);
+                printf("Data in the block %d faulty\n", i);
+                return;
+            }
+        }
     }
-  }
-  printf("Data is correct\n");
+    printf("Data is correct\n");
+    printf("------------------------------------------------\n");
 }

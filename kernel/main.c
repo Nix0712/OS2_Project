@@ -38,7 +38,7 @@ main()
       virtio_disk_init(i, name);
     }
 
-    init_raid_device();
+    init_raid_device(); // init raid device
     userinit();      // first user process
 
     __sync_synchronize();

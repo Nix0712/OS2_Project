@@ -17,3 +17,4 @@ user/usys.S
 .gdbinit
 fs.img
 .idea
+.clang-format

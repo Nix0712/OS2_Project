@@ -8,29 +8,32 @@
 
 #define OFFSET_MASK 0x0000000000000FFF
 
-enum RAID_DISK_ROLE { DATA_DISK, PARITY_DISK, OTHER_TYPE };
-enum DISK_HEALTH { HEALTHY = 1, UNHEALTY, RECOVERY };
+enum RAID_DISK_ROLE { DATA_DISK,
+                      PARITY_DISK,
+                      OTHER_TYPE };
+enum DISK_HEALTH { HEALTHY = 1,
+                   UNHEALTY,
+                   RECOVERY };
 
-struct RAIDSuperblock{
-  enum RAID_TYPE raid_level;
-  enum DISK_HEALTH disk_status;
-  int parrity_disk;
-  int swap_disk;
-  uint max_blknum;
-  uint blk_size;
-  uint num_of_disks;
-  uint disk_id;
+struct RAIDSuperblock {
+    enum RAID_TYPE raid_level;
+    enum DISK_HEALTH disk_status;
+    int parrity_disk;
+    int swap_disk;
+    uint max_blknum;
+    uint blk_size;
+    uint num_of_disks;
+    uint disk_id;
 };
 
-struct RAIDDisks{
-  struct spinlock disk_lock;
+struct RAIDDisks {
+    struct spinlock disk_lock;
 };
 
-struct RAIDDevice{
-  int is_init; // state: 0 it's not initilazed, state: 1 it is
-  struct RAIDDisks disks[VIRTIO_RAID_DISK_END-VIRTIO_RAID_DISK_START];
+struct RAIDDevice {
+    int is_init; // state: 0 it's not initilazed, state: 1 it is
+    struct RAIDDisks disks[VIRTIO_RAID_DISK_END - VIRTIO_RAID_DISK_START];
 };
-
 
 void init_raid_device();
 
