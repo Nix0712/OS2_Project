@@ -51,5 +51,5 @@ uint64 sys_info_raid(void) {
 
 uint64 sys_destroy_raid(void) {
     printf("DESTROY RAID\n");
-    return 0;
+    return raid_system_destroy();
 }

@@ -7,6 +7,32 @@
 // What if multiple processes call raid_init?
 static struct RAIDDevice raid_device;
 
+int is_raid_uninitialized(struct RAIDSuperblock* superblock) {
+    struct RAIDSuperblock zero_device = {0}; // Zero-initialized struct
+    return memcmp(superblock, &zero_device, sizeof(struct RAIDSuperblock)) == 0;
+}
+
+int load_metadata(struct RAIDSuperblock** metadata) {
+    if (raid_device.is_init == -1) {
+        uchar* data = kalloc();
+        read_block(1, 0, data); // TODO: could find healty disk and load from it?
+        struct RAIDSuperblock* superblock = (struct RAIDSuperblock*)data;
+        if (is_raid_uninitialized(superblock)) {
+            kfree(data);
+            return -1;
+        }
+        raid_device.superblock = (struct RAIDSuperblock*)data;
+    }
+
+    if(is_raid_uninitialized(raid_device.superblock))
+        return -1;
+
+    (*metadata) = raid_device.superblock;
+    raid_device.is_init = 1;
+
+    return 0;
+}
+
 void init_raid_device() {
     for (int i = VIRTIO_RAID_DISK_START; i < VIRTIO_RAID_DISK_END; i++) {
         initlock(&raid_device.disks[i].disk_lock, "disk_lock");
@@ -18,7 +44,10 @@ void init_raid_device() {
                "systems will fail.\n");
         return;
     }
-    raid_device.is_init = -1; // Could change to array of init vals, for one use of disks metadata
+
+    raid_device.is_init = -1;    // Not initialized (not in memory)
+    raid_device.meta_index = -1; // TODO: Do I need this?
+    raid_device.superblock = 0;  // Not in memory, will be loaded when needed
 
     // TODO: Add if RAID system is valid or not (for example, if there is not
     // enough healty disks for RAID1 )
@@ -55,8 +84,7 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
         blkc_num = (block_num / currMetadata->num_of_disks) + 1;
         if (isRead) {
             read_block(disk_num, blkc_num, (uchar*)p_buff);
-        } else 
-        {
+        } else {
             write_block(disk_num, blkc_num, (uchar*)p_buff);
         }
         break;
@@ -79,12 +107,10 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
         // TODO: handle when UNHEALTY to get copy of the data
         if (isRead) {
             read_block(disk_num, blkc_num, (uchar*)p_buff);
-            // read_block(disk_num + currMetadata->num_of_disks, blkc_num,
-            //            (uchar *)p_buff); // Write into mirror disk
+            // read_block(disk_num + currMetadata->num_of_disks, blkc_num, (uchar *)p_buff); // Write into mirror disk
         } else {
             write_block(disk_num, blkc_num, (uchar*)p_buff);
-            // write_block(disk_num + currMetadata->num_of_disks, blkc_num,
-            //             (uchar *)p_buff); // Write into mirror disk
+            // write_block(disk_num + currMetadata->num_of_disks, blkc_num,(uchar *)p_buff); // Write into mirror disk
         }
         break;
     case RAID4:
@@ -109,8 +135,6 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
             read_block(disk_num, blkc_num, (uchar*)p_buff);
             // TODO: Add write_block for parrity block
         } else {
-            // printf("Writing to disk %d\n", disk_num);
-            // printf("Writing to block %d\n\n", blkc_num);
             write_block(disk_num, blkc_num, (uchar*)p_buff);
             // TODO: Add write_block for parrity block
         }
@@ -144,8 +168,7 @@ int raid_system_init(enum RAID_TYPE raid_type) {
             return -1;
         }
         metadata->num_of_disks = (VIRTIO_RAID_DISK_END) / 2;
-        metadata->max_blknum =
-            (blockPerDisk * metadata->num_of_disks) - metadata->num_of_disks;
+        metadata->max_blknum = (blockPerDisk * metadata->num_of_disks) - metadata->num_of_disks;
         // Set hotswap disk if one disk fail
         if (((VIRTIO_RAID_DISK_END) & 1) == 1)
             metadata->swap_disk = VIRTIO_RAID_DISK_END;
@@ -171,18 +194,16 @@ int raid_system_init(enum RAID_TYPE raid_type) {
         // Write into the first block of disk i
         write_block(i, 0, (uchar*)metadata);
     }
-    kfree(metadata);
+    raid_device.superblock = metadata;
+    raid_device.is_init = 1; // We initailized the raid device
     return 0;
 }
 
 int raid_read_block(uint64 block_num, uint64 buffAddr) {
     // TODO: handle if it's not initailized
-
-    // TODO: chage to read from the raid_device on initalization and not from
-    // UNHEALTY
-    uchar data[BSIZE];
-    read_block(1, 0, data);
-    struct RAIDSuperblock* currMetadata = (struct RAIDSuperblock*)data;
+    // TODO: chage to read from the raid_device on initalization and not from block
+    struct RAIDSuperblock* currMetadata;
+    load_metadata(&currMetadata);
 
     // TODO: Check if disk is healthy and it's initialized, possible will be
     // function itself
@@ -201,12 +222,10 @@ int raid_read_block(uint64 block_num, uint64 buffAddr) {
 }
 
 int raid_write_block(uint64 block_num, uint64 buffAddr) {
-    // TODO: handle if it's not initailized
-
     // TODO: chage to read from the raid_device on initalization
-    uchar data[BSIZE];
-    read_block(1, 0, data);
-    struct RAIDSuperblock* currMetadata = (struct RAIDSuperblock*)data;
+    struct RAIDSuperblock* currMetadata;
+    load_metadata(&currMetadata);
+
     // TODO: Check if disk is healthy and it's initialized, possible will be
     // function itself
 
@@ -227,14 +246,12 @@ int raid_fail_disk(uint64 disk_num) {
     }
     uchar data[BSIZE];
     read_block(disk_num, 0, data);
-
-    acquire(&raid_device.disks[disk_num].disk_lock);
     struct RAIDSuperblock* currMetadata = (struct RAIDSuperblock*)data;
+
     currMetadata->disk_status = UNHEALTY;
 
     // TODO: Add code to handle the failure
 
-    release(&raid_device.disks[disk_num].disk_lock);
     return 0;
 }
 
@@ -248,7 +265,9 @@ int raid_repair_disk(uint64 disk_num) {
     acquire(&raid_device.disks[disk_num].disk_lock);
     struct RAIDSuperblock* currMetadata = (struct RAIDSuperblock*)data;
     currMetadata->disk_status = RECOVERY;
-    // DO recovery
+
+    // TODO: DO recovery
+
     currMetadata->disk_status = HEALTHY;
     release(&raid_device.disks[disk_num].disk_lock);
 
@@ -257,15 +276,12 @@ int raid_repair_disk(uint64 disk_num) {
 
 int raid_system_info(uint64 blkn, uint64 blks, uint64 diskn) {
     for (int i = VIRTIO_RAID_DISK_START; i <= VIRTIO_RAID_DISK_END; i++) {
-        uchar data[BSIZE];
-        read_block(i, 0, data);
-        acquire(&raid_device.disks[i].disk_lock);
+        struct RAIDSuperblock* currMetadata;
+        if (load_metadata(&currMetadata) == -1)
+            return -1;
 
-        struct RAIDSuperblock* currMetadata = (struct RAIDSuperblock*)data;
-        if (currMetadata->disk_status != HEALTHY) {
-            release(&raid_device.disks[i].disk_lock);
-            continue;
-        }
+        //TODO: handle unhealty disk
+
         struct proc* p = myproc();
         uint64 p_blkn = walkaddr(p->pagetable, blkn) | (blkn & OFFSET_MASK);
         uint64 p_blksz = walkaddr(p->pagetable, blks) | (blks & OFFSET_MASK);
@@ -273,9 +289,22 @@ int raid_system_info(uint64 blkn, uint64 blks, uint64 diskn) {
         *(uint*)p_blkn = currMetadata->max_blknum;
         *(uint*)p_blksz = currMetadata->blk_size;
         *(uint*)p_diskn = currMetadata->num_of_disks;
-        release(&raid_device.disks[i].disk_lock);
+
         return 0;
     }
+    
     // All disks are in fail state
     return -1;
+}
+
+int raid_system_destroy() {
+    uchar data[BSIZE];
+    memset(data, 0, BSIZE);
+    for (int i = VIRTIO_RAID_DISK_START; i <= VIRTIO_RAID_DISK_END; i++) {
+        write_block(i, 0, data);
+    }
+    raid_device.is_init = -1;
+    kfree(raid_device.superblock);
+    raid_device.superblock = 0;
+    return 0;
 }

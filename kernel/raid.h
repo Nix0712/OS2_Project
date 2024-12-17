@@ -32,6 +32,8 @@ struct RAIDDisks {
 
 struct RAIDDevice {
     int is_init; // state: 0 it's not initilazed, state: 1 it is
+    int meta_index; // stores the index of the meta data disk
+    struct RAIDSuperblock* superblock;
     struct RAIDDisks disks[VIRTIO_RAID_DISK_END - VIRTIO_RAID_DISK_START];
 };
 
@@ -43,5 +45,6 @@ int raid_write_block(uint64 blkn, uint64 buffAddr);
 int raid_fail_disk(uint64 disk_num);
 int raid_repair_disk(uint64 disk_num);
 int raid_system_info(uint64 blkn, uint64 blks, uint64 diskn);
+int raid_system_destroy();
 
 #endif
