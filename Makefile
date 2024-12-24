@@ -160,7 +160,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_maxout_vm\
-	$U/_customtest\
+	$U/_tst\
 	$U/_javni_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)

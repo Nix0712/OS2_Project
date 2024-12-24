@@ -18,6 +18,10 @@ int main(int argc, char* argv[]) {
         init_raid(RAID0_1);
     if (argc == 2 && strcmp(argv[1], "-q") == 0)
         print_info();
+    if (argc == 2 && strcmp(argv[1], "-f") == 0)
+        disk_fail_raid(2);
+    if (argc == 2 && strcmp(argv[1], "-r") == 0)
+        disk_repaired_raid(2);
     if (argc == 2 && strcmp(argv[1], "-d") == 0)
         destroy_raid();
     exit(0);

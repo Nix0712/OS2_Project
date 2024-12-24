@@ -13,7 +13,8 @@ enum RAID_DISK_ROLE { DATA_DISK,
                       OTHER_TYPE };
 enum DISK_HEALTH { HEALTHY = 1,
                    UNHEALTY,
-                   RECOVERY };
+                   RECOVERY,
+                   UNITIALIZED };
 
 struct RAIDSuperblock {
     enum RAID_TYPE raid_level;
@@ -32,9 +33,9 @@ struct RAIDDisks {
 
 struct RAIDDevice {
     int is_init; // state: 0 it's not initilazed, state: 1 it is
-    int meta_index; // stores the index of the meta data disk
-    struct RAIDSuperblock* superblock;
-    struct RAIDDisks disks[VIRTIO_RAID_DISK_END - VIRTIO_RAID_DISK_START];
+    enum DISK_HEALTH disk_status[VIRTIO_RAID_DISK_END+1];
+    struct RAIDSuperblock* superblock; //Metadata for the RAID type, cached
+    struct RAIDDisks disks[VIRTIO_RAID_DISK_END+1];
 };
 
 void init_raid_device();
