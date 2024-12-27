@@ -24,7 +24,6 @@ struct RAIDSuperblock {
     uint max_blknum;
     uint blk_size;
     uint num_of_disks;
-    uint disk_id;
 };
 
 struct RAIDDisks {

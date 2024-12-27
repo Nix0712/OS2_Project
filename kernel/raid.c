@@ -220,6 +220,22 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
     return 0;
 }
 
+// Move data form disk1 (safe disk) to disk2 (unhealty disk)
+void mirrorRecovery(uint64 disk1, uint64 disk2) {
+    uchar data[BSIZE];
+    uint64 blockPerDisk = (128 * 1024 * 1024) / BSIZE;
+    uint64 next = 10000;
+    for(int i = 0; i < blockPerDisk; i++){
+      if(i == next){
+        printf("|");
+        next+=10000;
+      }
+      read_block(disk1, i, data);
+      write_block(disk2, i, data);
+    }
+    printf("\nrecovery is done\n");
+}
+
 // Recover data based on the RAID level and given failed disk number
 int handle_recovery(struct RAIDSuperblock* currMetadata, uint64 failed_count, uint64 disk_num) {
     enum RAID_TYPE raid_type = currMetadata->raid_level;
@@ -230,6 +246,10 @@ int handle_recovery(struct RAIDSuperblock* currMetadata, uint64 failed_count, ui
     case RAID1:
     case RAID0_1:
         // TODO: Mirror recovery
+        uint64 recoverDisk = (disk_num >= currMetadata->num_of_disks) ? disk_num - currMetadata->num_of_disks : disk_num + currMetadata->num_of_disks;
+        if(get_disk_health(recoverDisk) != HEALTHY)
+          return -1; //LOST DATA!
+        mirrorRecovery(recoverDisk, disk_num);
         break;
     case RAID4:
         if (failed_count > 1 || currMetadata->parrity_disk == disk_num)
@@ -293,7 +313,6 @@ int raid_system_init(enum RAID_TYPE raid_type) {
         return -1;
     }
     for (int i = VIRTIO_RAID_DISK_START; i <= VIRTIO_RAID_DISK_END; i++) {
-        metadata->disk_id = i;
         // Write into the first block of disk i
         write_block(i, 0, (uchar*)metadata);
     }
