@@ -190,11 +190,14 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
         }
         break;
     case RAID5:
-        uint64 stripe_index = block_num / (currMetadata->num_of_disks - 1);
-        uint64 stripe_offset = block_num % (currMetadata->num_of_disks - 1);
-        uint64 parrity_index = (currMetadata->num_of_disks - 1) - stripe_index;
-        disk_num = ((parrity_index + stripe_offset + 1) % (currMetadata->num_of_disks)) + 1;
-        blkc_num = stripe_index + 1;
+        // NOTE: Number of disks is NUMBER OF ALL DISKS - 1 (parity disk) for RAID4 and for RADI5
+        uint64 stripe_index = block_num / (currMetadata->num_of_disks) + 1;
+        uint64 stripe_offset = block_num % (currMetadata->num_of_disks) + 1;
+        uint64 parrity_index = (currMetadata->num_of_disks + 1) - ((stripe_index - 1) % (currMetadata->num_of_disks + 1));
+        disk_num = parrity_index + stripe_offset;
+        if (disk_num > currMetadata->num_of_disks + 1)
+            disk_num = disk_num % (currMetadata->num_of_disks + 1);
+        blkc_num = stripe_index;
 
         // Check if the disk is healthy
         disk_health = get_disk_health(disk_num);
@@ -211,8 +214,7 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
             if (memcmp(oldData, (uchar*)p_buff, BSIZE) == 0)
                 return 0;
 
-            // TODO: handle parity write
-            // write_parrity_block(parrity_index, blkc_num, oldData, (uchar*)p_buff);
+            write_parrity_block(parrity_index, blkc_num, oldData, (uchar*)p_buff);
             write_block(disk_num, blkc_num, (uchar*)p_buff);
         }
         break;
@@ -224,16 +226,51 @@ int rw_block(struct RAIDSuperblock* currMetadata, uint64 block_num, uint64 p_buf
 void mirrorRecovery(uint64 disk1, uint64 disk2) {
     uchar data[BSIZE];
     uint64 blockPerDisk = (128 * 1024 * 1024) / BSIZE;
-    uint64 next = 10000;
-    for(int i = 0; i < blockPerDisk; i++){
-      if(i == next){
-        printf("|");
-        next+=10000;
-      }
-      read_block(disk1, i, data);
-      write_block(disk2, i, data);
+    uint64 step = blockPerDisk / 100;
+    uint64 next = step;
+    uint64 loading = 0;
+    printf("00%%");
+    for (int i = 0; i < blockPerDisk; i++) {
+        if (i == next) {
+            consputc(0x100);
+            consputc(0x100);
+            consputc(0x100);
+            if (loading < 10) {
+                printf("0%d%%", loading);
+            } else {
+                printf("%d%%", loading);
+            }
+            loading++;
+            next += step;
+        }
+        read_block(disk1, i, data);
+        write_block(disk2, i, data);
     }
-    printf("\nrecovery is done\n");
+    consputc(0x100);
+    consputc(0x100);
+    consputc(0x100);
+    printf("100%%\n");
+    printf("Recovery finished\n");
+}
+
+void raid4_and_5_recovery(uint64 recoverDisk) {
+    uint64 blockPerDisk = (128 * 1024 * 1024) / BSIZE;
+
+    for (uint64 i = 1; i < blockPerDisk; i++) {
+        uchar recoveryBlock[BSIZE];
+        uint64 dataDisk = (recoverDisk + 1) % (VIRTIO_RAID_DISK_END + 1);
+        read_block(dataDisk, i, recoveryBlock);
+        for (uint64 j = 1; j < VIRTIO_RAID_DISK_END - 1; j++) {
+            uint64 currDisk = (dataDisk + j) % (VIRTIO_RAID_DISK_END + 1);
+            uchar* nextBlock = kalloc();
+            read_block(currDisk, i, nextBlock);
+            for (uint64 k = 0; k < BSIZE; k++) {
+                recoveryBlock[k] = recoveryBlock[k] ^ nextBlock[k];
+            }
+            kfree(nextBlock);
+        }
+        write_block(recoverDisk, i, recoveryBlock);
+    }
 }
 
 // Recover data based on the RAID level and given failed disk number
@@ -245,25 +282,23 @@ int handle_recovery(struct RAIDSuperblock* currMetadata, uint64 failed_count, ui
         return -1;
     case RAID1:
     case RAID0_1:
-        // TODO: Mirror recovery
         uint64 recoverDisk = (disk_num >= currMetadata->num_of_disks) ? disk_num - currMetadata->num_of_disks : disk_num + currMetadata->num_of_disks;
-        if(get_disk_health(recoverDisk) != HEALTHY)
-          return -1; //LOST DATA!
+        if (get_disk_health(recoverDisk) != HEALTHY)
+            return -1; // LOST DATA!
         mirrorRecovery(recoverDisk, disk_num);
         break;
     case RAID4:
         if (failed_count > 1 || currMetadata->parrity_disk == disk_num)
             return -1;
-        // TODO: Parrity disk recovery
+        raid4_and_5_recovery(disk_num);
         break;
     case RAID5:
         if (failed_count > 1)
             return -1;
-        // TODO: Parrity disk recovery
+        raid4_and_5_recovery(disk_num);
         break;
     }
     return 0;
-    ;
 }
 
 int raid_system_init(enum RAID_TYPE raid_type) {
@@ -298,14 +333,14 @@ int raid_system_init(enum RAID_TYPE raid_type) {
         break;
 
     case RAID4:
-        metadata->num_of_disks = VIRTIO_RAID_DISK_END - 1;
         metadata->parrity_disk = VIRTIO_RAID_DISK_END;
     case RAID5:
+        metadata->num_of_disks = VIRTIO_RAID_DISK_END - 1;
         if (VIRTIO_RAID_DISK_END == 2) {
             kfree(metadata);
             return -2;
         }
-        metadata->max_blknum = blockPerDisk * (VIRTIO_RAID_DISK_END - 1);
+        metadata->max_blknum = (blockPerDisk * (VIRTIO_RAID_DISK_END - 1)) - VIRTIO_RAID_DISK_END;
         break;
     default:
         kfree(metadata);
@@ -324,7 +359,7 @@ int raid_system_init(enum RAID_TYPE raid_type) {
 int raid_read_block(uint64 block_num, uint64 buffAddr) {
     struct RAIDSuperblock* currMetadata;
     if (load_metadata(&currMetadata) == -1) {
-        // RAID is no initialized
+        // RAID is not initialized
         return -2;
     }
 
@@ -395,7 +430,9 @@ int raid_repair_disk(uint64 disk_num) {
     currMetadata->disk_status = RECOVERY;
     raid_device.disk_status[disk_num] = currMetadata->disk_status;
 
-    handle_recovery(currMetadata, fail_count, disk_num);
+    int err = handle_recovery(currMetadata, fail_count, disk_num);
+    if (err == -1)
+        return -1; // Recovery failed
 
     currMetadata->disk_status = HEALTHY;
     raid_device.disk_status[disk_num] = currMetadata->disk_status;
