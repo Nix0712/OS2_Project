@@ -16,9 +16,10 @@
 #include "virtio.h"
 
 // the address of virtio mmio register r.
-#define R(offset,r) ((volatile uint32 *)(VIRTIO0 + VIRTIO_OFFSET * offset + (r)))
+#define R(offset, r) ((volatile uint32 *)(VIRTIO0 + VIRTIO_OFFSET * offset + (r)))
 
-static struct disk {
+static struct disk
+{
   // Name of the disk to be used with panic and spinlock
   char *name;
 
@@ -47,7 +48,8 @@ static struct disk {
   // track info about in-flight operations,
   // for use when completion interrupt arrives.
   // indexed by first descriptor index of chain.
-  struct {
+  struct
+  {
     struct buf *b;
     char status;
   } info[NUM];
@@ -60,20 +62,20 @@ static struct disk {
 
 } disk[VIRTIO_RAID_DISK_END + 1];
 
-static struct buf* transfer_buffer[VIRTIO_RAID_DISK_END + 1];
+static struct buf *transfer_buffer[VIRTIO_RAID_DISK_END + 1];
 
-void
-virtio_disk_init(int id, char * name)
+void virtio_disk_init(int id, char *name)
 {
   uint32 status = 0;
 
   initlock(&disk[id].vdisk_lock, name);
   disk[id].name = name;
 
-  if(*R(id, VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
-     *R(id, VIRTIO_MMIO_VERSION) != 2 ||
-     *R(id, VIRTIO_MMIO_DEVICE_ID) != 2 ||
-     *R(id, VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){
+  if (*R(id, VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
+      *R(id, VIRTIO_MMIO_VERSION) != 2 ||
+      *R(id, VIRTIO_MMIO_DEVICE_ID) != 2 ||
+      *R(id, VIRTIO_MMIO_VENDOR_ID) != 0x554d4551)
+  {
     panic_concat(2, "could not find virtio disk: ", name);
   }
 
@@ -105,29 +107,29 @@ virtio_disk_init(int id, char * name)
 
   // re-read status to ensure FEATURES_OK is set.
   status = *R(id, VIRTIO_MMIO_STATUS);
-  if(!(status & VIRTIO_CONFIG_S_FEATURES_OK))
-      panic_concat(2, name, ": virtio disk FEATURES_OK unset");
+  if (!(status & VIRTIO_CONFIG_S_FEATURES_OK))
+    panic_concat(2, name, ": virtio disk FEATURES_OK unset");
 
   // initialize queue 0.
   *R(id, VIRTIO_MMIO_QUEUE_SEL) = 0;
 
   // ensure queue 0 is not in use.
-  if(*R(id, VIRTIO_MMIO_QUEUE_READY))
-      panic_concat(2, name, ": virtio disk should not be ready");
+  if (*R(id, VIRTIO_MMIO_QUEUE_READY))
+    panic_concat(2, name, ": virtio disk should not be ready");
 
   // check maximum queue size.
   uint32 max = *R(id, VIRTIO_MMIO_QUEUE_NUM_MAX);
-  if(max == 0)
-      panic_concat(2, name, ": virtio disk has no queue 0");
-  if(max < NUM)
-      panic_concat(2, name, ": virtio disk max queue too short");
+  if (max == 0)
+    panic_concat(2, name, ": virtio disk has no queue 0");
+  if (max < NUM)
+    panic_concat(2, name, ": virtio disk max queue too short");
 
   // allocate and zero queue memory.
   disk[id].desc = kalloc();
   disk[id].avail = kalloc();
   disk[id].used = kalloc();
-  if(!disk[id].desc || !disk[id].avail || !disk[id].used)
-      panic_concat(2, name, ": virtio disk kalloc");
+  if (!disk[id].desc || !disk[id].avail || !disk[id].used)
+    panic_concat(2, name, ": virtio disk kalloc");
   memset(disk[id].desc, 0, PGSIZE);
   memset(disk[id].avail, 0, PGSIZE);
   memset(disk[id].used, 0, PGSIZE);
@@ -147,16 +149,18 @@ virtio_disk_init(int id, char * name)
   *R(id, VIRTIO_MMIO_QUEUE_READY) = 0x1;
 
   // all NUM descriptors start out unused.
-  for(int i = 0; i < NUM; i++)
+  for (int i = 0; i < NUM; i++)
     disk[id].free[i] = 1;
 
   // tell device we're completely ready.
   status |= VIRTIO_CONFIG_S_DRIVER_OK;
   *R(id, VIRTIO_MMIO_STATUS) = status;
 
-  if (id >= VIRTIO_RAID_DISK_START) {
+  if (id >= VIRTIO_RAID_DISK_START)
+  {
     transfer_buffer[id] = kalloc();
-    if (!transfer_buffer[id]) {
+    if (!transfer_buffer[id])
+    {
       panic("virtio_disk_init: kalloc of transfer_buffer failed");
     }
     memset(transfer_buffer[id], 0, BSIZE);
@@ -170,8 +174,10 @@ virtio_disk_init(int id, char * name)
 static int
 alloc_desc(int id)
 {
-  for(int i = 0; i < NUM; i++){
-    if(disk[id].free[i]){
+  for (int i = 0; i < NUM; i++)
+  {
+    if (disk[id].free[i])
+    {
       disk[id].free[i] = 0;
       return i;
     }
@@ -183,10 +189,10 @@ alloc_desc(int id)
 static void
 free_desc(int id, int i)
 {
-  if(i >= NUM)
+  if (i >= NUM)
     panic_concat(2, disk[id].name, ": free_desc 1");
-  if(disk[id].free[i])
-      panic_concat(2, disk[id].name, ": free_desc 2");
+  if (disk[id].free[i])
+    panic_concat(2, disk[id].name, ": free_desc 2");
   disk[id].desc[i].addr = 0;
   disk[id].desc[i].len = 0;
   disk[id].desc[i].flags = 0;
@@ -200,11 +206,12 @@ free_desc(int id, int i)
 static void
 free_chain(int id, int i)
 {
-  while(1){
+  while (1)
+  {
     int flag = disk[id].desc[i].flags;
     int nxt = disk[id].desc[i].next;
     free_desc(id, i);
-    if(flag & VRING_DESC_F_NEXT)
+    if (flag & VRING_DESC_F_NEXT)
       i = nxt;
     else
       break;
@@ -216,10 +223,12 @@ free_chain(int id, int i)
 static int
 alloc3_desc(int id, int *idx)
 {
-  for(int i = 0; i < 3; i++){
+  for (int i = 0; i < 3; i++)
+  {
     idx[i] = alloc_desc(id);
-    if(idx[i] < 0){
-      for(int j = 0; j < i; j++)
+    if (idx[i] < 0)
+    {
+      for (int j = 0; j < i; j++)
         free_desc(id, idx[j]);
       return -1;
     }
@@ -227,8 +236,7 @@ alloc3_desc(int id, int *idx)
   return 0;
 }
 
-void
-virtio_disk_rw(int id, struct buf *b, int write)
+void virtio_disk_rw(int id, struct buf *b, int write)
 {
   uint64 sector = b->blockno * (BSIZE / 512);
   acquire(&disk[id].vdisk_lock);
@@ -239,8 +247,10 @@ virtio_disk_rw(int id, struct buf *b, int write)
 
   // allocate the three descriptors.
   int idx[3];
-  while(1){
-    if(alloc3_desc(id, idx) == 0) {
+  while (1)
+  {
+    if (alloc3_desc(id, idx) == 0)
+    {
       break;
     }
 
@@ -252,20 +262,20 @@ virtio_disk_rw(int id, struct buf *b, int write)
 
   struct virtio_blk_req *buf0 = &disk[id].ops[idx[0]];
 
-  if(write)
+  if (write)
     buf0->type = VIRTIO_BLK_T_OUT; // write the disk
   else
     buf0->type = VIRTIO_BLK_T_IN; // read the disk
   buf0->reserved = 0;
   buf0->sector = sector;
 
-  disk[id].desc[idx[0]].addr = (uint64) buf0;
+  disk[id].desc[idx[0]].addr = (uint64)buf0;
   disk[id].desc[idx[0]].len = sizeof(struct virtio_blk_req);
   disk[id].desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk[id].desc[idx[0]].next = idx[1];
-  disk[id].desc[idx[1]].addr = (uint64) b->data;
+  disk[id].desc[idx[1]].addr = (uint64)b->data;
   disk[id].desc[idx[1]].len = BSIZE;
-  if(write)
+  if (write)
     disk[id].desc[idx[1]].flags = 0; // device reads b->data
   else
     disk[id].desc[idx[1]].flags = VRING_DESC_F_WRITE; // device writes b->data
@@ -273,7 +283,7 @@ virtio_disk_rw(int id, struct buf *b, int write)
   disk[id].desc[idx[1]].next = idx[2];
 
   disk[id].info[idx[0]].status = 0xff; // device writes 0 on success
-  disk[id].desc[idx[2]].addr = (uint64) &disk[id].info[idx[0]].status;
+  disk[id].desc[idx[2]].addr = (uint64)&disk[id].info[idx[0]].status;
   disk[id].desc[idx[2]].len = 1;
   disk[id].desc[idx[2]].flags = VRING_DESC_F_WRITE; // device writes the status
   disk[id].desc[idx[2]].next = 0;
@@ -292,9 +302,7 @@ virtio_disk_rw(int id, struct buf *b, int write)
 
   __sync_synchronize();
 
-
   *R(id, VIRTIO_MMIO_QUEUE_NOTIFY) = 0; // value is queue number
-
 
   // Wait for virtio_disk_intr() to say request has finished.
   sleep(b, &disk[id].vdisk_lock);
@@ -303,27 +311,31 @@ virtio_disk_rw(int id, struct buf *b, int write)
   free_chain(id, idx[0]);
 
   release(&disk[id].vdisk_lock);
-
 }
 
-void write_block(int diskn, int blockno, uchar* data) {
-    struct buf *b = transfer_buffer[diskn];
-    b->blockno = blockno;
-    memmove(b->data, data, BSIZE);
+void write_block(int diskn, int blockno, uchar *data)
+{
+  struct buf *b = transfer_buffer[diskn];
+  acquiresleep(&b->lock);
+  b->blockno = blockno;
+  memmove(b->data, data, BSIZE);
 
-    virtio_disk_rw(diskn, b, 1);
+  virtio_disk_rw(diskn, b, 1);
+  releasesleep(&b->lock);
 }
 
-void read_block(int diskn, int blockno, uchar* data) {
-    struct buf *b = transfer_buffer[diskn];
-    b->blockno = blockno;
-    
-    virtio_disk_rw(diskn, b, 0);
-    memmove(data, b->data, BSIZE);
+void read_block(int diskn, int blockno, uchar *data)
+{
+  struct buf *b = transfer_buffer[diskn];
+  acquiresleep(&b->lock);
+  b->blockno = blockno;
+
+  virtio_disk_rw(diskn, b, 0);
+  memmove(data, b->data, BSIZE);
+  releasesleep(&b->lock);
 }
 
-void
-virtio_disk_intr(int id)
+void virtio_disk_intr(int id)
 {
   acquire(&disk[id].vdisk_lock);
 
@@ -340,15 +352,16 @@ virtio_disk_intr(int id)
   // the device increments disk.used->idx when it
   // adds an entry to the used ring.
 
-  while(disk[id].used_idx != disk[id].used->idx){
+  while (disk[id].used_idx != disk[id].used->idx)
+  {
     __sync_synchronize();
     int idx = disk[id].used->ring[disk[id].used_idx % NUM].id;
 
-    if(disk[id].info[idx].status != 0)
+    if (disk[id].info[idx].status != 0)
       panic_concat(2, disk[id].name, ": virtio_disk_intr status");
 
     struct buf *b = disk[id].info[idx].b;
-    b->disk = 0;   // disk is done with buf
+    b->disk = 0; // disk is done with buf
 
     wakeup(b);
 

@@ -3,20 +3,28 @@
 
 #include "types.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "riscv.h"
 #include "defs.h"
 
 #define OFFSET_MASK 0x0000000000000FFF
 
-enum RAID_DISK_ROLE { DATA_DISK,
-                      PARITY_DISK,
-                      OTHER_TYPE };
-enum DISK_HEALTH { HEALTHY = 1,
-                   UNHEALTY,
-                   RECOVERY,
-                   UNITIALIZED };
+enum RAID_DISK_ROLE
+{
+    DATA_DISK,
+    PARITY_DISK,
+    OTHER_TYPE
+};
+enum DISK_HEALTH
+{
+    HEALTHY = 1,
+    UNHEALTY,
+    RECOVERY,
+    UNITIALIZED
+};
 
-struct RAIDSuperblock {
+struct RAIDSuperblock
+{
     enum RAID_TYPE raid_level;
     enum DISK_HEALTH disk_status;
     int parrity_disk;
@@ -26,15 +34,18 @@ struct RAIDSuperblock {
     uint num_of_disks;
 };
 
-struct RAIDDisks {
-    struct spinlock disk_lock;
+struct RAIDDisks
+{
+    struct sleeplock disk_lock; // sleeplock: OK to hold across I/O that may sleep
 };
 
-struct RAIDDevice {
+struct RAIDDevice
+{
     int is_init; // state: 0 it's not initilazed, state: 1 it is
-    enum DISK_HEALTH disk_status[VIRTIO_RAID_DISK_END+1];
-    struct RAIDSuperblock* superblock; //Metadata for the RAID type, cached
-    struct RAIDDisks disks[VIRTIO_RAID_DISK_END+1];
+    enum DISK_HEALTH disk_status[VIRTIO_RAID_DISK_END + 1];
+    struct RAIDSuperblock *superblock; // Metadata for the RAID type, cached
+    struct RAIDDisks disks[VIRTIO_RAID_DISK_END + 1];
+    struct spinlock metadata_lock; // protects is_init/superblock/disk_status cache
 };
 
 void init_raid_device();

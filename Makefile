@@ -83,7 +83,17 @@ else
 MEM_SIZE = $(MEM_NUMBER)
 endif
 
-CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM_SIZE) -DDISK_SIZE=$(DISK_SIZE)
+
+DISK_MEM_NUMBER = $(shell echo $(MEM) | sed 's/[A-Za-z]$$//')
+DISK_SUFFIX = $(shell echo $(MEM) | sed 's/[0-9]*//')
+
+ifeq ($(DISK_SUFFIX), G)
+DISK_MEM_SIZE = $(shell echo '$(DISK_MEM_NUMBER) * 1024' | bc)
+else
+DISK_MEM_SIZE = $(DISK_MEM_NUMBER)
+endif
+
+CFLAGS = -Wall -Werror -O0 -fno-omit-frame-pointer -ggdb -gdwarf-2 -DDISKS=$(DISKS) -DMEM=$(MEM_SIZE) -DDSK_SIZE=$(DISK_MEM_NUMBER)
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
@@ -185,7 +195,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
 ifndef CPUS
-CPUS := 1
+CPUS := 2
 endif
 
 ifndef MEM
